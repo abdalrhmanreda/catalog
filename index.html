@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catalog - Visual Database Architecture & Relational Rationale</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+  <style>
+    :root {
+      --bg: #f6f6f3;
+      --surface: #ffffff;
+      --surface-sunk: #f1f1ec;
+      --canvas: #fbfbf9;
+      --border: #e4e4dd;
+      --border-strong: #d2d2c9;
+      --ink: #18181b;
+      --text: #3f3f46;
+      --muted: #5f5f68;
+      --accent: #3451d1;
+      --accent-hover: #2a43b3;
+      --accent-soft: #eef1fd;
+
+      --c-1n: #2557d6;
+      --c-1n-bg: #edf2fe;
+      --c-1n-line: #c9d7fb;
+      --c-11: #9a5208;
+      --c-11-bg: #fdf4e4;
+      --c-11-line: #f0d6a8;
+      --c-nm: #7136d9;
+      --c-nm-bg: #f4effd;
+      --c-nm-line: #dcccf8;
+
+      --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --shadow-sm: 0 1px 2px rgba(24, 24, 27, 0.05);
+      --shadow-md: 0 1px 2px rgba(24, 24, 27, 0.04), 0 8px 24px -8px rgba(24, 24, 27, 0.10);
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+      --page-max: 1280px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: 88px;
+      -webkit-text-size-adjust: 100%;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      caret-color: var(--accent);
+    }
+    ::selection { background: #d7defb; color: var(--ink); }
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar { width: 12px; height: 12px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-strong);
+      border: 3px solid var(--bg);
+      border-radius: 999px;
+    }
+    html { scrollbar-color: var(--border-strong) transparent; }
+
+    a { color: inherit; }
+    strong { color: var(--ink); font-weight: 600; }
+    code {
+      font-family: var(--font-mono);
+      font-size: 0.86em;
+      color: var(--ink);
+      background: var(--surface-sunk);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 0.05em 0.35em;
+      white-space: nowrap;
+    }
+    .icon {
+      width: 16px;
+      height: 16px;
+      flex: none;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.75;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .wrap {
+      width: 100%;
+      max-width: var(--page-max);
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+    @media (max-width: 640px) {
+      .wrap { padding: 0 1rem; }
+    }
+
+    /* Top bar */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(246, 246, 243, 0.94);
+      border-bottom: 1px solid var(--border);
+    }
+    .topbar .wrap {
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      height: 64px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--ink);
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .brand-mark {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      background: var(--ink);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: 0.85rem;
+    }
+    .brand-sub { color: var(--muted); font-weight: 400; }
+    .nav-links {
+      display: flex;
+      gap: 0.25rem;
+      list-style: none;
+    }
+    .nav-links a {
+      display: block;
+      padding: 0.4rem 0.7rem;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.15s, background-color 0.15s;
+    }
+    .nav-links a:hover { color: var(--ink); background: var(--surface-sunk); }
+    .search {
+      margin-left: auto;
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .search .icon {
+      position: absolute;
+      left: 0.75rem;
+      color: var(--muted);
+      pointer-events: none;
+    }
+    .search input {
+      width: 280px;
+      height: 38px;
+      padding: 0 2.6rem 0 2.25rem;
+      font: inherit;
+      font-size: 0.875rem;
+      color: var(--ink);
+      background: var(--surface);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .search input::placeholder { color: #75757e; }
+    .search input:hover { border-color: #bdbdb3; }
+    .search input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(52, 81, 209, 0.15);
+    }
+    .search kbd {
+      position: absolute;
+      right: 0.6rem;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--muted);
+      border: 1px solid var(--border-strong);
+      border-bottom-width: 2px;
+      border-radius: 4px;
+      padding: 0 0.35rem;
+      line-height: 1.4;
+      pointer-events: none;
+    }
+    .search input:focus ~ kbd,
+    .search input:not(:placeholder-shown) ~ kbd { display: none; }
+    @media (max-width: 860px) {
+      .nav-links { display: none; }
+    }
+    @media (max-width: 640px) {
+      .topbar .wrap { gap: 1rem; }
+      .brand-sub { display: none; }
+      .search { flex: 1; }
+      .search input { width: 100%; }
+    }
+
+    /* Hero */
+    .hero {
+      padding: 4rem 0 2.5rem;
+    }
+    .hero h1 {
+      font-size: clamp(2rem, 4.2vw, 3.1rem);
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -0.035em;
+      color: var(--ink);
+      max-width: 18ch;
+      text-wrap: balance;
+    }
+    .hero p {
+      margin-top: 1.1rem;
+      max-width: 68ch;
+      font-size: 1.075rem;
+      color: var(--muted);
+    }
+    .constraints {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1.75rem;
+      list-style: none;
+    }
+    .constraints li {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-size: 0.85rem;
+      color: var(--text);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.35rem 0.85rem 0.35rem 0.6rem;
+    }
+    .constraints .icon { color: #1f8a5b; width: 15px; height: 15px; stroke-width: 2.25; }
+
+    /* Diagram */
+    .diagram {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+    }
+    .diagram-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.85rem 1rem 0.85rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .diagram-bar h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+    }
+    .diagram-bar .meta {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 0.1rem;
+    }
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      background: var(--surface-sunk);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 3px;
+    }
+    .tool-btn {
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 30px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+      transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
+    }
+    .tool-btn:hover { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
+    .tool-btn:active { transform: translateY(0.5px); }
+    .tool-btn:disabled { color: #b4b4ac; cursor: not-allowed; background: transparent; box-shadow: none; }
+    .zoom-level {
+      min-width: 3.4rem;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .toolbar .sep { width: 1px; height: 18px; background: var(--border-strong); margin: 0 0.2rem; }
+
+    .viewport {
+      position: relative;
+      height: clamp(460px, 72vh, 860px);
+      overflow: hidden;
+      background-color: var(--canvas);
+      background-image: radial-gradient(circle, #dcdcd4 1px, transparent 1.2px);
+      background-size: 22px 22px;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+    }
+    .viewport.is-panning { cursor: grabbing; }
+    .stage {
+      position: absolute;
+      top: 0;
+      left: 0;
+      transform-origin: 0 0;
+      will-change: transform;
+    }
+    .stage.is-animating { transition: transform 0.35s var(--ease-out); }
+    .stage .mermaid { opacity: 0; transition: opacity 0.5s var(--ease-out); }
+    .stage .mermaid[data-processed="true"] { opacity: 1; }
+    .stage .mermaid:not([data-processed]) { visibility: hidden; }
+    .loading {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      font-size: 0.875rem;
+      color: var(--muted);
+    }
+    .loading.is-error { color: #b42318; }
+    .hint {
+      position: absolute;
+      left: 1rem;
+      bottom: 0.85rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.25rem 0.55rem;
+      pointer-events: none;
+    }
+    @media (hover: none) { .hint { display: none; } }
+
+    /* Mermaid ER surface overrides */
+    .stage svg .er.relationshipLabelBox { fill: var(--canvas) !important; opacity: 1 !important; }
+    .stage svg .er.relationshipLabel { fill: var(--muted) !important; font-size: 12px; }
+    .stage svg .er.relationshipLine { stroke: #9a9aa6 !important; stroke-width: 1.25px !important; }
+    .stage svg .er.entityLabel { fill: var(--ink) !important; }
+    .stage svg .er.entityBox { stroke: var(--border-strong) !important; }
+
+    .diagram:fullscreen { border-radius: 0; display: flex; flex-direction: column; }
+    .diagram:fullscreen .viewport { flex: 1; height: auto; }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem 1.5rem;
+      padding: 0.85rem 1.25rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .legend-title { font-weight: 600; color: var(--ink); }
+    .legend-item { display: flex; align-items: center; gap: 0.5rem; }
+    .legend-item svg { width: 40px; height: 16px; stroke: var(--ink); stroke-width: 1.4; fill: none; }
+    .legend-item svg circle { fill: var(--surface); }
+    .legend-item code { font-size: 0.75rem; }
+    @media (max-width: 640px) {
+      .diagram-bar { flex-wrap: wrap; }
+      .viewport { height: 62vh; }
+    }
+
+    /* Sections */
+    .section { padding-top: 5rem; }
+    .section-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .section-head h2 {
+      font-size: clamp(1.5rem, 2.6vw, 1.9rem);
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      line-height: 1.2;
+      color: var(--ink);
+    }
+    .section-head p {
+      margin-top: 0.4rem;
+      color: var(--muted);
+      max-width: 62ch;
+    }
+    .count {
+      flex: none;
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    /* Cardinality pills */
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 500;
+      line-height: 1;
+      padding: 0.35rem 0.55rem;
+      border-radius: 6px;
+      border: 1px solid;
+      white-space: nowrap;
+    }
+    .pill b { font-weight: 600; }
+    .pill-1n { color: var(--c-1n); background: var(--c-1n-bg); border-color: var(--c-1n-line); }
+    .pill-11 { color: var(--c-11); background: var(--c-11-bg); border-color: var(--c-11-line); }
+    .pill-nm { color: var(--c-nm); background: var(--c-nm-bg); border-color: var(--c-nm-line); }
+
+    /* Relationship list */
+    .rel-list {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+    }
+    .rel-row {
+      display: grid;
+      grid-template-columns: minmax(260px, 360px) 1fr;
+      gap: 0.75rem 3rem;
+      padding: 1.5rem 1.75rem;
+      border-top: 1px solid var(--border);
+      transition: background-color 0.2s;
+    }
+    .rel-row:first-child { border-top: 0; }
+    .rel-row:hover { background: #fcfcfa; }
+    .rel-pair {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      font-family: var(--font-mono);
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+    }
+    .rel-pair .icon { color: var(--muted); width: 15px; height: 15px; }
+    .rel-side .pill { margin-top: 0.7rem; }
+    .fk {
+      margin-top: 0.75rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .fk code { white-space: normal; word-break: break-word; }
+    .why-label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 0.3rem;
+    }
+    .why-text {
+      font-size: 0.95rem;
+      color: var(--text);
+      max-width: 72ch;
+    }
+    @media (max-width: 820px) {
+      .rel-row { grid-template-columns: 1fr; padding: 1.25rem; }
+    }
+
+    /* Table deep-dive */
+    .table-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.25rem;
+    }
+    @media (max-width: 900px) {
+      .table-grid { grid-template-columns: 1fr; }
+    }
+    .table-panel {
+      min-width: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      transition: border-color 0.2s, box-shadow 0.3s var(--ease-out);
+    }
+    .table-panel:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); }
+    .tp-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem 1rem;
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .tp-name {
+      font-family: var(--font-mono);
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+    }
+    .tp-role {
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--accent);
+      background: var(--accent-soft);
+      border-radius: 999px;
+      padding: 0.2rem 0.65rem;
+      white-space: nowrap;
+    }
+    .tp-body { padding: 1.25rem 1.5rem 0.5rem; }
+    .tp-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 0.4rem;
+    }
+    .tp-text {
+      font-size: 0.925rem;
+      color: var(--text);
+    }
+    .tp-text code { white-space: normal; }
+    .tp-rels {
+      list-style: none;
+      margin: 0.75rem 1.5rem 1.5rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+    .tp-rels li {
+      padding: 0.8rem 1rem;
+      border-top: 1px solid var(--border);
+    }
+    .tp-rels li:first-child { border-top: 0; }
+    .tp-rel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--ink);
+    }
+    .tp-rel-target { display: flex; align-items: center; gap: 0.4rem; min-width: 0; overflow-wrap: anywhere; }
+    .tp-rel-target .icon { color: var(--muted); width: 14px; height: 14px; }
+    .tp-rel-note {
+      margin-top: 0.3rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .empty {
+      display: none;
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.925rem;
+      background: var(--surface);
+      border: 1px dashed var(--border-strong);
+      border-radius: var(--radius);
+    }
+    .empty.is-visible { display: block; }
+    .empty button {
+      font: inherit;
+      color: var(--accent);
+      background: none;
+      border: 0;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    .empty button:hover { color: var(--accent-hover); }
+
+    .page-foot {
+      margin-top: 5rem;
+      padding: 2rem 0 3rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .stage.is-animating, .stage .mermaid { transition: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-fit" viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4"/></symbol>
+    <symbol id="i-expand" viewBox="0 0 24 24"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-arrow-r" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-arrow-l" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-arrow-lr" viewBox="0 0 24 24"><path d="M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4"/></symbol>
+  </svg>
+
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brand" href="#top">
+        <span class="brand-mark" aria-hidden="true">C</span>
+        <span>Catalog <span class="brand-sub">Schema Architecture</span></span>
+      </a>
+      <nav aria-label="Sections">
+        <ul class="nav-links">
+          <li><a href="#diagram">Diagram</a></li>
+          <li><a href="#relationships">Relationships</a></li>
+          <li><a href="#tables">Tables</a></li>
+        </ul>
+      </nav>
+      <label class="search">
+        <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+        <input type="search" id="searchInput" placeholder="Search tables, FKs, or relations..." aria-label="Search tables, FKs, or relations" autocomplete="off">
+        <kbd aria-hidden="true">/</kbd>
+      </label>
+    </div>
+  </header>
+
+  <main id="top" class="wrap">
+
+    <section class="hero">
+      <h1>Database ERD &amp; Cardinality Rationale</h1>
+      <p>Complete Entity-Relationship blueprint for Catalog Django backend. Explains the architectural reason behind every <strong>One-to-Many</strong>, <strong>One-to-One</strong>, and <strong>Many-to-Many</strong> relationship.</p>
+      <ul class="constraints">
+        <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>No SMS Gateway (Email OTP)</li>
+        <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>No Payment Gateway (Informed Tiers)</li>
+        <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>No Workers/Jobs (On-Demand Evaluation)</li>
+        <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>AES-256-GCM Vault</li>
+      </ul>
+    </section>
+
+    <section class="diagram" id="diagram" aria-labelledby="diagramTitle">
+      <div class="diagram-bar">
+        <div>
+          <h2 id="diagramTitle">Visual Entity-Relationship Diagram</h2>
+          <div class="meta">14 tables · 18 relationships</div>
+        </div>
+        <div class="toolbar" role="toolbar" aria-label="Diagram controls">
+          <button class="tool-btn" id="zoomOut" type="button" aria-label="Zoom out" title="Zoom out (−)"><svg class="icon" aria-hidden="true"><use href="#i-minus"/></svg></button>
+          <span class="zoom-level" id="zoomLevel" aria-live="polite">100%</span>
+          <button class="tool-btn" id="zoomIn" type="button" aria-label="Zoom in" title="Zoom in (+)"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></button>
+          <span class="sep" aria-hidden="true"></span>
+          <button class="tool-btn" id="zoomFit" type="button" aria-label="Fit to screen" title="Fit to screen (0)"><svg class="icon" aria-hidden="true"><use href="#i-fit"/></svg></button>
+          <button class="tool-btn" id="fullscreen" type="button" aria-label="Toggle fullscreen" title="Fullscreen"><svg class="icon" aria-hidden="true"><use href="#i-expand"/></svg></button>
+          <button class="tool-btn" id="downloadSvg" type="button" aria-label="Download SVG" title="Download SVG"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg></button>
+        </div>
+      </div>
+
+      <div class="viewport" id="viewport" tabindex="0" aria-label="Entity-relationship diagram. Drag to pan; use plus and minus keys to zoom.">
+        <div class="loading" id="diagramLoading">Rendering diagram…</div>
+        <div class="stage" id="stage">
+          <div class="mermaid">
+erDiagram
+    User ||--o{ OTPCode : "requests"
+    User ||--o{ Device : "registers"
+    User ||--o{ Contact : "owns"
+    User ||--o{ Contact : "is linked in"
+    User ||--o{ Message : "sends"
+    User ||--o| InactivitySettings : "configures"
+    User ||--o{ Checkin : "logs"
+    User ||--o{ TrusteeConfirmation : "targets"
+    User ||--o{ Notification : "receives"
+    User ||--o{ AuditLog : "initiates"
+
+    Contact ||--o{ MessageRecipient : "is chosen as"
+    Contact ||--o{ Delivery : "receives"
+    Contact ||--o| InactivitySettings : "acts as trustee for"
+    Contact ||--o{ TrusteeConfirmation : "confirms for"
+
+    Message ||--o{ MessageMedia : "contains"
+    Message ||--o{ MessageRecipient : "has"
+    Message ||--o{ Delivery : "produces"
+
+    User }o--o| Plan : "assigned to"
+
+    User {
+        uuid id PK
+        string full_name
+        string email UK
+        string phone
+        string password_hash
+        string avatar_url
+        string pin_hash
+        timestamp email_verified_at
+        string locale
+        string timezone
+        timestamp last_active_at
+        enum status
+        uuid current_plan_id FK
+        timestamp deleted_at
+    }
+
+    OTPCode {
+        uuid id PK
+        uuid user_id FK
+        string target_email
+        string code_hash
+        enum purpose
+        integer attempts
+        timestamp expires_at
+        timestamp used_at
+    }
+
+    Device {
+        uuid id PK
+        uuid user_id FK
+        string fcm_token UK
+        enum platform
+        timestamp last_seen_at
+    }
+
+    Contact {
+        uuid id PK
+        uuid owner_id FK
+        string name
+        string relation
+        string phone
+        string email
+        boolean is_self
+        uuid linked_user_id FK
+        timestamp last_used_at
+    }
+
+    Message {
+        uuid id PK
+        uuid sender_id FK
+        enum type
+        string title
+        text body_encrypted
+        string body_iv
+        string body_tag
+        enum status
+        enum trigger_type
+        timestamp deliver_at
+        enum occasion_type
+        string occasion_note
+        enum channel
+        boolean is_saved_moment
+        timestamp paused_at
+        timestamp confirmed_at
+        timestamp sent_at
+    }
+
+    MessageMedia {
+        uuid id PK
+        uuid message_id FK
+        enum kind
+        string storage_key
+        string mime_type
+        integer size_bytes
+        integer duration_sec
+        integer sort_order
+    }
+
+    MessageRecipient {
+        uuid id PK
+        uuid message_id FK
+        uuid contact_id FK
+    }
+
+    Delivery {
+        uuid id PK
+        uuid message_id FK
+        uuid contact_id FK
+        enum channel
+        enum status
+        string access_token_hash UK
+        integer attempts
+        text last_error
+        timestamp sent_at
+        timestamp opened_at
+        timestamp open_later_at
+    }
+
+    InactivitySettings {
+        uuid user_id PK
+        boolean enabled
+        integer checkin_interval_days
+        integer missed_checkins_limit
+        integer grace_period_days
+        boolean verify_by_email
+        uuid trustee_contact_id FK
+        enum state
+        timestamp next_checkin_at
+    }
+
+    Checkin {
+        uuid id PK
+        uuid user_id FK
+        timestamp sent_at
+        enum channel
+        timestamp responded_at
+        enum response
+    }
+
+    TrusteeConfirmation {
+        uuid id PK
+        uuid user_id FK
+        uuid trustee_contact_id FK
+        string token_hash UK
+        timestamp requested_at
+        enum decision
+        timestamp decided_at
+    }
+
+    Plan {
+        uuid id PK
+        string code UK
+        string name
+        decimal price
+        string currency
+        integer max_messages
+        integer storage_years
+        integer max_media_mb
+        json features
+    }
+
+    Notification {
+        uuid id PK
+        uuid user_id FK
+        string type
+        string title
+        text body
+        json data
+        timestamp read_at
+    }
+
+    AuditLog {
+        uuid id PK
+        uuid user_id FK
+        enum actor_type
+        string action
+        string entity_name
+        uuid entity_id
+    }
+          </div>
+        </div>
+        <div class="hint">Drag to pan · Ctrl/⌘ + scroll to zoom</div>
+      </div>
+
+      <div class="legend" aria-label="Crow's foot notation legend">
+        <span class="legend-title">Notation</span>
+        <span class="legend-item">
+          <svg viewBox="0 0 40 16" aria-hidden="true"><path d="M0 8h40M29 3v10M34 3v10"/></svg>
+          Exactly one <code>||</code>
+        </span>
+        <span class="legend-item">
+          <svg viewBox="0 0 40 16" aria-hidden="true"><path d="M0 8h24M32 8h8M36 3v10"/><circle cx="28" cy="8" r="4"/></svg>
+          Zero or one <code>o|</code>
+        </span>
+        <span class="legend-item">
+          <svg viewBox="0 0 40 16" aria-hidden="true"><path d="M0 8h18M26 8h14M30 8l10-6M30 8l10 6"/><circle cx="22" cy="8" r="4"/></svg>
+          Zero or many <code>o{</code>
+        </span>
+        <span class="legend-item">
+          <svg viewBox="0 0 40 16" aria-hidden="true"><path d="M0 8h40M26 3v10M30 8l10-6M30 8l10 6"/></svg>
+          One or many <code>|{</code>
+        </span>
+      </div>
+    </section>
+
+    <!-- Relational Cardinality Showcase -->
+    <section class="section" id="relationships">
+      <div class="section-head">
+        <div>
+          <h2>Relational Cardinality &amp; Explicit Rationale</h2>
+          <p>Every relationship modeled with its exact business, security, and data integrity reasoning.</p>
+        </div>
+        <span class="count" id="relCount"></span>
+      </div>
+
+      <div class="rel-list" id="cardinalityGrid">
+
+        <article class="rel-row" data-search>
+          <div class="rel-side">
+            <h3 class="rel-pair">User <svg class="icon" aria-label="to"><use href="#i-arrow-r"/></svg> Message</h3>
+            <span class="pill pill-1n"><b>1 : N</b> One-to-Many</span>
+            <p class="fk">Foreign Key: <code>Message.sender_id</code></p>
+          </div>
+          <div>
+            <p class="why-label">Why One-to-Many?</p>
+            <p class="why-text">A user composes multiple messages across their lifetime (advice to children, wedding letters, reassurance, future self notes). Each individual message has strictly <strong>one unique author/sender</strong> who owns and encrypts the content.</p>
+          </div>
+        </article>
+
+        <article class="rel-row" data-search>
+          <div class="rel-side">
+            <h3 class="rel-pair">User <svg class="icon" aria-label="to"><use href="#i-arrow-r"/></svg> Contact</h3>
+            <span class="pill pill-1n"><b>1 : N</b> One-to-Many</span>
+            <p class="fk">Foreign Key: <code>Contact.owner_id</code></p>
+          </div>
+          <div>
+            <p class="why-label">Why One-to-Many?</p>
+            <p class="why-text">Each user curates their own private address book of recipients (mother, spouse, friends, future self). Contacts belonging to User A must remain private and never leak into User B's recipient list.</p>
+          </div>
+        </article>
+
+        <article class="rel-row" data-search>
+          <div class="rel-side">
+            <h3 class="rel-pair">User <svg class="icon" aria-label="and"><use href="#i-arrow-lr"/></svg> InactivitySettings</h3>
+            <span class="pill pill-11"><b>1 : 1</b> One-to-One</span>
+            <p class="fk">Primary Key = Foreign Key: <code>user_id</code></p>
+          </div>
+          <div>
+            <p class="why-label">Why One-to-One?</p>
+            <p class="why-text">A user can have exactly <strong>one</strong> active proof-of-life policy (global check-in interval, grace period, and designated trustee). Enforcing a 1:1 relation guarantees zero ambiguity or conflicting switch states for a given account.</p>
+          </div>
+        </article>
+
+        <article class="rel-row" data-search>
+          <div class="rel-side">
+            <h3 class="rel-pair">Message <svg class="icon" aria-label="to"><use href="#i-arrow-r"/></svg> Delivery</h3>
+            <span class="pill pill-1n"><b>1 : N</b> One-to-Many</span>
+            <p class="fk">Foreign Key: <code>Delivery.message_id</code></p>
+          </div>
+          <div>
+            <p class="why-label">Why One-to-Many?</p>
+            <p class="why-text"><strong>Vital state separation:</strong> When a message is sent to multiple recipients, each recipient has an independent lifecycle (Recipient A opened it today, Recipient B clicked "Open Later", Recipient C hasn't opened yet). Each recipient also requires their own unique, single-use public link token (<code>access_token_hash</code>).</p>
+          </div>
+        </article>
+
+        <article class="rel-row" data-search>
+          <div class="rel-side">
+            <h3 class="rel-pair">Message <svg class="icon" aria-label="to"><use href="#i-arrow-r"/></svg> MessageMedia</h3>
+            <span class="pill pill-1n"><b>1 : N</b> One-to-Many</span>
+            <p class="fk">Foreign Key: <code>MessageMedia.message_id</code></p>
+          </div>
+          <div>
+            <p class="why-label">Why One-to-Many?</p>
+            <p class="why-text">A single composed message can attach multiple media files (e.g., 1 voice memo + 2 photos + 1 video). Normalizing attachments into a separate table allows upload progress tracking, storage quota calculation, and short-lived signed URLs without bloating the message record.</p>
+          </div>
+        </article>
+
+        <article class="rel-row" data-search>
+          <div class="rel-side">
+            <h3 class="rel-pair">Message <svg class="icon" aria-label="and"><use href="#i-arrow-lr"/></svg> Contact</h3>
+            <span class="pill pill-nm"><b>N : M</b> Many-to-Many</span>
+            <p class="fk">Join Table: <code>MessageRecipient (message_id, contact_id)</code></p>
+          </div>
+          <div>
+            <p class="why-label">Why Many-to-Many?</p>
+            <p class="why-text">One message can be addressed to multiple family members simultaneously, and one contact (e.g., "Mother") can receive multiple distinct messages from the user across different years and occasions.</p>
+          </div>
+        </article>
+
+        <article class="rel-row" data-search>
+          <div class="rel-side">
+            <h3 class="rel-pair">User <svg class="icon" aria-label="to"><use href="#i-arrow-r"/></svg> Device</h3>
+            <span class="pill pill-1n"><b>1 : N</b> One-to-Many</span>
+            <p class="fk">Foreign Key: <code>Device.user_id</code></p>
+          </div>
+          <div>
+            <p class="why-label">Why One-to-Many?</p>
+            <p class="why-text">A user can install the app on multiple physical hardware devices (e.g., iPhone, iPad, Android tablet). Push notifications (FCM) for proof-of-life check-ins ("Where have you been? Everything OK?") must reach <strong>all active devices</strong>.</p>
+          </div>
+        </article>
+
+        <article class="rel-row" data-search>
+          <div class="rel-side">
+            <h3 class="rel-pair">User <svg class="icon" aria-label="to"><use href="#i-arrow-r"/></svg> OTPCode</h3>
+            <span class="pill pill-1n"><b>1 : N</b> One-to-Many</span>
+            <p class="fk">Foreign Key: <code>OTPCode.user_id</code> (nullable)</p>
+          </div>
+          <div>
+            <p class="why-label">Why One-to-Many?</p>
+            <p class="why-text">A user requests verification passcodes at different times (email verification, password reset, recipient unlock). Each OTP is a distinct event with its own 5-minute expiry timestamp and 5-attempt brute-force counter.</p>
+          </div>
+        </article>
+
+        <article class="rel-row" data-search>
+          <div class="rel-side">
+            <h3 class="rel-pair">User <svg class="icon" aria-label="to"><use href="#i-arrow-r"/></svg> Checkin</h3>
+            <span class="pill pill-1n"><b>1 : N</b> One-to-Many</span>
+            <p class="fk">Foreign Key: <code>Checkin.user_id</code></p>
+          </div>
+          <div>
+            <p class="why-label">Why One-to-Many?</p>
+            <p class="why-text">The proof-of-life engine repeatedly prompts the user. Over months or years, the user responds "I'm fine" dozens of times. An immutable historical ledger is kept to prevent false releases and provide an unquestionable audit trail.</p>
+          </div>
+        </article>
+
+        <article class="rel-row" data-search>
+          <div class="rel-side">
+            <h3 class="rel-pair">User <svg class="icon" aria-label="to"><use href="#i-arrow-r"/></svg> TrusteeConfirmation</h3>
+            <span class="pill pill-1n"><b>1 : N</b> One-to-Many</span>
+            <p class="fk">Foreign Key: <code>TrusteeConfirmation.user_id</code></p>
+          </div>
+          <div>
+            <p class="why-label">Why One-to-Many?</p>
+            <p class="why-text">If an inactivity sequence triggers, a trustee confirmation request is dispatched. If the user cancels the sequence and goes inactive again later, a <strong>new</strong> confirmation cycle starts. Each attempt requires its own token hash, IP, and decision record.</p>
+          </div>
+        </article>
+
+        <article class="rel-row" data-search>
+          <div class="rel-side">
+            <h3 class="rel-pair">Plan <svg class="icon" aria-label="to"><use href="#i-arrow-r"/></svg> User</h3>
+            <span class="pill pill-1n"><b>1 : N</b> One-to-Many</span>
+            <p class="fk">Foreign Key: <code>User.current_plan_id</code></p>
+          </div>
+          <div>
+            <p class="why-label">Why One-to-Many?</p>
+            <p class="why-text">A membership plan (Free, Monthly, Business) is a shared template defining limits (<code>max_messages</code>, <code>storage_years</code>). Thousands of users belong to the Free plan, but each user has exactly <strong>one active plan tier</strong>.</p>
+          </div>
+        </article>
+
+        <article class="rel-row" data-search>
+          <div class="rel-side">
+            <h3 class="rel-pair">Contact <svg class="icon" aria-label="to"><use href="#i-arrow-r"/></svg> User</h3>
+            <span class="pill pill-nm"><b>N : 1</b> Optional Many-to-One</span>
+            <p class="fk">Foreign Key: <code>Contact.linked_user_id</code> (nullable)</p>
+          </div>
+          <div>
+            <p class="why-label">Why Many-to-One?</p>
+            <p class="why-text">If a recipient contact's email matches an active user account in the app, it links to that User so messages appear directly in their in-app <code>/inbox</code>. Multiple senders can independently save the same person in their contacts.</p>
+          </div>
+        </article>
+
+      </div>
+      <div class="empty" id="relEmpty">No relationships match <strong class="q"></strong>. <button type="button" data-clear>Clear search</button></div>
+    </section>
+
+    <!-- Full Table Deep-Dive -->
+    <section class="section" id="tables">
+      <div class="section-head">
+        <div>
+          <h2>Comprehensive Table Deep-Dive</h2>
+          <p>Functional breakdown, data security attributes, and inbound/outbound relations for every table.</p>
+        </div>
+        <span class="count" id="tableCount"></span>
+      </div>
+
+      <div class="table-grid" id="tablesSection">
+
+        <article class="table-panel" data-search>
+          <div class="tp-head">
+            <h3 class="tp-name">User</h3>
+            <span class="tp-role">Core Identity</span>
+          </div>
+          <div class="tp-body">
+            <p class="tp-label">Function &amp; Role in Catalog</p>
+            <p class="tp-text">Represents the primary user profile, handling authentication, encryption master keys, and activity heartbeats. The <code>last_active_at</code> column is updated on every API request and "I'm fine" tap, powering the on-demand proof-of-life engine without requiring background cron daemons.</p>
+          </div>
+          <ul class="tp-rels">
+            <li>
+              <div class="tp-rel-head">
+                <span class="tp-rel-target"><svg class="icon" aria-hidden="true"><use href="#i-arrow-r"/></svg>Message (sender_id)</span>
+                <span class="pill pill-1n"><b>1 : N</b></span>
+              </div>
+              <p class="tp-rel-note"><strong>Why 1-to-N:</strong> A user creates multiple messages; each message belongs to one sender.</p>
+            </li>
+            <li>
+              <div class="tp-rel-head">
+                <span class="tp-rel-target"><svg class="icon" aria-hidden="true"><use href="#i-arrow-r"/></svg>Contact (owner_id)</span>
+                <span class="pill pill-1n"><b>1 : N</b></span>
+              </div>
+              <p class="tp-rel-note"><strong>Why 1-to-N:</strong> A user has a private address book of recipients.</p>
+            </li>
+            <li>
+              <div class="tp-rel-head">
+                <span class="tp-rel-target"><svg class="icon" aria-hidden="true"><use href="#i-arrow-lr"/></svg>InactivitySettings (user_id)</span>
+                <span class="pill pill-11"><b>1 : 1</b></span>
+              </div>
+              <p class="tp-rel-note"><strong>Why 1-to-1:</strong> A user has exactly one proof-of-life dead man's switch policy.</p>
+            </li>
+          </ul>
+        </article>
+
+        <article class="table-panel" data-search>
+          <div class="tp-head">
+            <h3 class="tp-name">Message</h3>
+            <span class="tp-role">Encrypted Vault</span>
+          </div>
+          <div class="tp-body">
+            <p class="tp-label">Function &amp; Role in Catalog</p>
+            <p class="tp-text">Houses composed messages and their delivery triggers (instant, date, occasion, inactivity). For total privacy, message bodies are encrypted with AES-256-GCM (<code>body_encrypted</code>, <code>body_iv</code>, <code>body_tag</code>) and are only decrypted when viewed by the sender or verified recipient.</p>
+          </div>
+          <ul class="tp-rels">
+            <li>
+              <div class="tp-rel-head">
+                <span class="tp-rel-target"><svg class="icon" aria-hidden="true"><use href="#i-arrow-r"/></svg>MessageMedia (message_id)</span>
+                <span class="pill pill-1n"><b>1 : N</b></span>
+              </div>
+              <p class="tp-rel-note"><strong>Why 1-to-N:</strong> A message can have multiple voice, photo, or video attachments.</p>
+            </li>
+            <li>
+              <div class="tp-rel-head">
+                <span class="tp-rel-target"><svg class="icon" aria-hidden="true"><use href="#i-arrow-r"/></svg>Delivery (message_id)</span>
+                <span class="pill pill-1n"><b>1 : N</b></span>
+              </div>
+              <p class="tp-rel-note"><strong>Why 1-to-N:</strong> Each recipient has their own distinct delivery lifecycle, opened status, and public link token.</p>
+            </li>
+          </ul>
+        </article>
+
+        <article class="table-panel" data-search>
+          <div class="tp-head">
+            <h3 class="tp-name">Delivery</h3>
+            <span class="tp-role">Recipient State</span>
+          </div>
+          <div class="tp-body">
+            <p class="tp-label">Function &amp; Role in Catalog</p>
+            <p class="tp-text">Tracks delivery progress per recipient (<code>queued &rarr; sent &rarr; delivered &rarr; opened</code>). It holds <code>access_token_hash</code> (SHA-256 of 32-byte secure random token) which powers the public recipient link (<code>/r/:token</code>).</p>
+          </div>
+          <ul class="tp-rels">
+            <li>
+              <div class="tp-rel-head">
+                <span class="tp-rel-target"><svg class="icon" aria-hidden="true"><use href="#i-arrow-l"/></svg>Message (message_id)</span>
+                <span class="pill pill-1n"><b>N : 1</b></span>
+              </div>
+              <p class="tp-rel-note"><strong>Why N-to-1:</strong> Multiple deliveries stem from one multi-recipient message.</p>
+            </li>
+            <li>
+              <div class="tp-rel-head">
+                <span class="tp-rel-target"><svg class="icon" aria-hidden="true"><use href="#i-arrow-l"/></svg>Contact (contact_id)</span>
+                <span class="pill pill-1n"><b>N : 1</b></span>
+              </div>
+              <p class="tp-rel-note"><strong>Why N-to-1:</strong> A single contact can receive multiple messages over time.</p>
+            </li>
+          </ul>
+        </article>
+
+        <article class="table-panel" data-search>
+          <div class="tp-head">
+            <h3 class="tp-name">InactivitySettings</h3>
+            <span class="tp-role">Proof-of-Life Engine</span>
+          </div>
+          <div class="tp-body">
+            <p class="tp-label">Function &amp; Role in Catalog</p>
+            <p class="tp-text">Configures the proof-of-life dead man's switch: interval between check-ins, missed check-ins limit, grace period buffer, and designated trusted contact. States: <code>active &rarr; warning &rarr; pending_trustee &rarr; released</code>.</p>
+          </div>
+          <ul class="tp-rels">
+            <li>
+              <div class="tp-rel-head">
+                <span class="tp-rel-target"><svg class="icon" aria-hidden="true"><use href="#i-arrow-lr"/></svg>User (user_id PK=FK)</span>
+                <span class="pill pill-11"><b>1 : 1</b></span>
+              </div>
+              <p class="tp-rel-note"><strong>Why 1-to-1:</strong> A user has only one proof-of-life configuration.</p>
+            </li>
+            <li>
+              <div class="tp-rel-head">
+                <span class="tp-rel-target"><svg class="icon" aria-hidden="true"><use href="#i-arrow-r"/></svg>Contact (trustee_contact_id)</span>
+                <span class="pill pill-1n"><b>N : 1</b> Optional</span>
+              </div>
+              <p class="tp-rel-note"><strong>Why N-to-1:</strong> A user selects at most one contact from their address book to verify their life status.</p>
+            </li>
+          </ul>
+        </article>
+
+      </div>
+      <div class="empty" id="tableEmpty">No tables match <strong class="q"></strong>. <button type="button" data-clear>Clear search</button></div>
+    </section>
+
+    <footer class="page-foot">Catalog Django backend · Schema reference generated from <code>DATABASE_ERD.md</code></footer>
+  </main>
+
+  <script>
+    // ---------- Diagram: render + pan/zoom ----------
+    const viewport = document.getElementById('viewport');
+    const stage = document.getElementById('stage');
+    const zoomLabel = document.getElementById('zoomLevel');
+    const loading = document.getElementById('diagramLoading');
+    const MIN_SCALE = 0.15;
+    const MAX_SCALE = 3;
+    const view = { x: 0, y: 0, scale: 1 };
+    let contentSize = null;
+
+    function applyView(animate) {
+      stage.classList.toggle('is-animating', !!animate);
+      stage.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
+      zoomLabel.textContent = `${Math.round(view.scale * 100)}%`;
+      document.getElementById('zoomIn').disabled = view.scale >= MAX_SCALE - 0.001;
+      document.getElementById('zoomOut').disabled = view.scale <= MIN_SCALE + 0.001;
+    }
+
+    function zoomAt(factor, cx, cy, animate) {
+      const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, view.scale * factor));
+      const k = next / view.scale;
+      view.x = cx - (cx - view.x) * k;
+      view.y = cy - (cy - view.y) * k;
+      view.scale = next;
+      applyView(animate);
+    }
+
+    function zoomCenter(factor) {
+      zoomAt(factor, viewport.clientWidth / 2, viewport.clientHeight / 2, true);
+    }
+
+    function fit(animate) {
+      if (!contentSize) return;
+      const pad = 32;
+      const vw = viewport.clientWidth - pad * 2;
+      const vh = viewport.clientHeight - pad * 2;
+      view.scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, Math.min(vw / contentSize.w, vh / contentSize.h, 1)));
+      view.x = (viewport.clientWidth - contentSize.w * view.scale) / 2;
+      view.y = (viewport.clientHeight - contentSize.h * view.scale) / 2;
+      applyView(animate);
+    }
+
+    // Open at a readable zoom, anchored on the top of the graph (User), unless the whole diagram already fits.
+    function initialView() {
+      fit(false);
+      const readable = viewport.clientWidth < 640 ? 0.55 : 0.8;
+      if (view.scale >= readable) return;
+      view.scale = readable;
+      view.x = (viewport.clientWidth - contentSize.w * view.scale) / 2;
+      view.y = 24;
+      applyView(false);
+    }
+
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'base',
+      securityLevel: 'strict',
+      themeVariables: {
+        fontFamily: '"IBM Plex Sans", -apple-system, sans-serif',
+        fontSize: '14px',
+        background: '#fbfbf9',
+        primaryColor: '#eef1fd',
+        primaryTextColor: '#18181b',
+        primaryBorderColor: '#d2d2c9',
+        lineColor: '#9a9aa6',
+        textColor: '#3f3f46',
+        mainBkg: '#eef1fd',
+        nodeBorder: '#d2d2c9',
+        attributeBackgroundColorOdd: '#ffffff',
+        attributeBackgroundColorEven: '#f6f6f3'
+      },
+      er: {
+        useMaxWidth: false,
+        diagramPadding: 24,
+        entityPadding: 14,
+        minEntityWidth: 120,
+        fontSize: 13
+      }
+    });
+
+    (async () => {
+      try {
+        await document.fonts.ready;
+        await mermaid.run({ querySelector: '#stage .mermaid' });
+        const svg = stage.querySelector('svg');
+        const vb = svg.viewBox.baseVal;
+        contentSize = {
+          w: vb && vb.width ? vb.width : svg.getBoundingClientRect().width,
+          h: vb && vb.height ? vb.height : svg.getBoundingClientRect().height
+        };
+        svg.setAttribute('width', contentSize.w);
+        svg.setAttribute('height', contentSize.h);
+        svg.style.maxWidth = 'none';
+        loading.remove();
+        initialView();
+      } catch (err) {
+        loading.textContent = 'Diagram failed to render. Check your connection and reload the page.';
+        loading.classList.add('is-error');
+        console.error(err);
+      }
+    })();
+
+    // Drag to pan
+    let drag = null;
+    viewport.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      drag = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: view.x, oy: view.y };
+      viewport.setPointerCapture(e.pointerId);
+      viewport.classList.add('is-panning');
+    });
+    viewport.addEventListener('pointermove', (e) => {
+      if (!drag || drag.id !== e.pointerId) return;
+      view.x = drag.ox + (e.clientX - drag.sx);
+      view.y = drag.oy + (e.clientY - drag.sy);
+      applyView(false);
+    });
+    const endDrag = () => { drag = null; viewport.classList.remove('is-panning'); };
+    viewport.addEventListener('pointerup', endDrag);
+    viewport.addEventListener('pointercancel', endDrag);
+
+    // Ctrl/Cmd + wheel (and trackpad pinch) zooms around the cursor; plain wheel scrolls the page.
+    viewport.addEventListener('wheel', (e) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      const rect = viewport.getBoundingClientRect();
+      zoomAt(Math.exp(-e.deltaY * 0.0025), e.clientX - rect.left, e.clientY - rect.top, false);
+    }, { passive: false });
+
+    viewport.addEventListener('keydown', (e) => {
+      const step = 60;
+      if (e.key === '+' || e.key === '=') zoomCenter(1.2);
+      else if (e.key === '-' || e.key === '_') zoomCenter(1 / 1.2);
+      else if (e.key === '0') fit(true);
+      else if (e.key === 'ArrowLeft') { view.x += step; applyView(true); }
+      else if (e.key === 'ArrowRight') { view.x -= step; applyView(true); }
+      else if (e.key === 'ArrowUp') { view.y += step; applyView(true); }
+      else if (e.key === 'ArrowDown') { view.y -= step; applyView(true); }
+      else return;
+      e.preventDefault();
+    });
+
+    document.getElementById('zoomIn').addEventListener('click', () => zoomCenter(1.25));
+    document.getElementById('zoomOut').addEventListener('click', () => zoomCenter(1 / 1.25));
+    document.getElementById('zoomFit').addEventListener('click', () => fit(true));
+
+    const diagramPanel = document.getElementById('diagram');
+    const fsBtn = document.getElementById('fullscreen');
+    if (!diagramPanel.requestFullscreen) fsBtn.hidden = true;
+    fsBtn.addEventListener('click', () => {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else diagramPanel.requestFullscreen();
+    });
+    document.addEventListener('fullscreenchange', () => requestAnimationFrame(() => fit(false)));
+
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => fit(false), 150);
+    });
+
+    document.getElementById('downloadSvg').addEventListener('click', () => {
+      const svg = stage.querySelector('svg');
+      if (!svg) return;
+      const blob = new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'catalog-erd.svg';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    });
+
+    // ---------- Real-time search filter ----------
+    const searchInput = document.getElementById('searchInput');
+    const groups = [
+      { items: document.querySelectorAll('#cardinalityGrid [data-search]'), count: document.getElementById('relCount'), empty: document.getElementById('relEmpty'), noun: 'relationships' },
+      { items: document.querySelectorAll('#tablesSection [data-search]'), count: document.getElementById('tableCount'), empty: document.getElementById('tableEmpty'), noun: 'tables' }
+    ];
+
+    function filter() {
+      const q = searchInput.value.toLowerCase().trim();
+      groups.forEach(({ items, count, empty, noun }) => {
+        let shown = 0;
+        let firstVisibleSeen = false;
+        items.forEach(item => {
+          const match = !q || item.textContent.toLowerCase().includes(q);
+          item.hidden = !match;
+          if (match) {
+            shown++;
+            item.style.borderTopWidth = firstVisibleSeen ? '' : '0';
+            firstVisibleSeen = true;
+          }
+        });
+        count.textContent = q ? `${shown} of ${items.length} ${noun}` : `${items.length} ${noun}`;
+        empty.querySelector('.q').textContent = `"${searchInput.value.trim()}"`;
+        empty.classList.toggle('is-visible', shown === 0);
+        empty.previousElementSibling.hidden = shown === 0;
+      });
+    }
+    searchInput.addEventListener('input', filter);
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { searchInput.value = ''; filter(); searchInput.blur(); }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === '/' && document.activeElement !== searchInput && !/input|textarea/i.test(document.activeElement.tagName)) {
+        e.preventDefault();
+        searchInput.focus();
+      }
+    });
+    document.querySelectorAll('[data-clear]').forEach(btn => btn.addEventListener('click', () => {
+      searchInput.value = '';
+      filter();
+      searchInput.focus();
+    }));
+    filter();
+  </script>
+</body>
+</html>
